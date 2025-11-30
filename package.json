@@ -25,7 +25,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/emplica/expo-android-targets.git"
+    "url": "https://github.com/franciskouaho/expo-android-targets.git"
   },
   "files": [
     "build",

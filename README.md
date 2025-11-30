@@ -1,7 +1,7 @@
 # expo-android-targets
 
 [![npm version](https://img.shields.io/npm/v/expo-android-targets.svg)](https://www.npmjs.com/package/expo-android-targets)
-[![CI](https://github.com/emplica/expo-android-targets/actions/workflows/ci.yml/badge.svg)](https://github.com/emplica/expo-android-targets/actions/workflows/ci.yml)
+[![CI](https://github.com/franciskouaho/expo-android-targets/actions/workflows/ci.yml/badge.svg)](https://github.com/franciskouaho/expo-android-targets/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Downloads](https://img.shields.io/npm/dm/expo-android-targets.svg)](https://www.npmjs.com/package/expo-android-targets)
 
