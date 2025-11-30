@@ -29,3 +29,17 @@ coverage/
 # Misc
 .env
 .env.local
+
+# Other projects in workspace
+/admiral/
+/appmakeria/
+/Astra/
+/awa/
+/Carezy/
+/documentation/
+/emplica/
+/luma/
+/morpho/
+/Nightly/
+/proto/
+/SoraWatermarkCleaner-main/
