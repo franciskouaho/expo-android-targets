@@ -145,7 +145,7 @@ const withAndroidWidget: ConfigPlugin = (config) => {
             },
           },
         ],
-      });
+      } as any);
     }
 
     return config;
