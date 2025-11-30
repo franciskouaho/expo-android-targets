@@ -1,0 +1,23 @@
+# Source files (only include build/)
+src/
+tsconfig.json
+
+# Development
+*.log
+.DS_Store
+node_modules/
+
+# Testing
+coverage/
+
+# Documentation (keep README.md)
+QUICK_START.md
+WIDGET_SETUP.md
+
+# IDE
+.idea/
+.vscode/
+
+# Git
+.git/
+.gitignore

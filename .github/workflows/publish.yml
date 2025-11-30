@@ -1,0 +1,103 @@
+name: Publish to npm
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (leave empty to use package.json version)'
+        required: false
+        type: string
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # Required for npm provenance
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Validate build
+        run: |
+          echo "Validating build artifacts..."
+          test -f build/index.js || (echo "Missing build/index.js" && exit 1)
+          test -f build/index.d.ts || (echo "Missing build/index.d.ts" && exit 1)
+          test -f build/withAndroidWidget.js || (echo "Missing build/withAndroidWidget.js" && exit 1)
+          test -f build/widget.js || (echo "Missing build/widget.js" && exit 1)
+          echo "✓ All required files present"
+
+      - name: Check templates exist
+        run: |
+          echo "Checking template files..."
+          test -d templates/kotlin || (echo "Missing templates/kotlin" && exit 1)
+          test -d templates/xml || (echo "Missing templates/xml" && exit 1)
+          test -d templates/layout || (echo "Missing templates/layout" && exit 1)
+          echo "✓ All template directories present"
+
+      - name: Update version (manual trigger)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.version != ''
+        run: |
+          npm version ${{ github.event.inputs.version }} --no-git-tag-version
+          echo "Updated version to ${{ github.event.inputs.version }}"
+
+      - name: Get package version
+        id: package-version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Publishing version: $VERSION"
+
+      - name: Publish to npm
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub release (workflow_dispatch only)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.package-version.outputs.version }}
+          release_name: Release v${{ steps.package-version.outputs.version }}
+          body: |
+            Published version ${{ steps.package-version.outputs.version }} to npm.
+
+            Install with:
+            ```bash
+            npm install expo-android-targets@${{ steps.package-version.outputs.version }}
+            ```
+          draft: false
+          prerelease: false
+
+      - name: Summary
+        run: |
+          echo "## 🎉 Published to npm!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Package:** expo-android-targets" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.package-version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Registry:** https://www.npmjs.com/package/expo-android-targets" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Install with:" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "npm install expo-android-targets@${{ steps.package-version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

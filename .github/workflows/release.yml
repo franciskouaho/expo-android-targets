@@ -1,0 +1,134 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version-type:
+        description: 'Version type to bump'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      changelog:
+        description: 'Changelog entry (optional)'
+        required: false
+        type: string
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Get current version
+        id: current-version
+        run: |
+          CURRENT=$(node -p "require('./package.json').version")
+          echo "current=$CURRENT" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT"
+
+      - name: Bump version
+        id: bump-version
+        run: |
+          NEW_VERSION=$(npm version ${{ github.event.inputs.version-type }} --no-git-tag-version)
+          NEW_VERSION=${NEW_VERSION#v}  # Remove 'v' prefix
+          echo "new=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Bumped to: $NEW_VERSION"
+
+      - name: Update CHANGELOG.md
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          VERSION="${{ steps.bump-version.outputs.new }}"
+
+          # Create changelog entry
+          ENTRY="## [$VERSION] - $DATE\n\n"
+
+          if [ -n "${{ github.event.inputs.changelog }}" ]; then
+            ENTRY+="${{ github.event.inputs.changelog }}\n\n"
+          else
+            ENTRY+"### Changed\n- Version bump to $VERSION\n\n"
+          fi
+
+          # Insert after the first heading
+          awk -v entry="$ENTRY" '
+            /^# Changelog/ { print; print ""; print entry; next }
+            { print }
+          ' CHANGELOG.md > CHANGELOG.tmp && mv CHANGELOG.tmp CHANGELOG.md
+
+          echo "Updated CHANGELOG.md"
+
+      - name: Commit changes
+        run: |
+          git add package.json CHANGELOG.md
+          git commit -m "chore: bump version to ${{ steps.bump-version.outputs.new }}"
+          git tag -a "v${{ steps.bump-version.outputs.new }}" -m "Release v${{ steps.bump-version.outputs.new }}"
+
+      - name: Push changes
+        run: |
+          git push origin main
+          git push origin "v${{ steps.bump-version.outputs.new }}"
+
+      - name: Generate release notes
+        id: release-notes
+        run: |
+          NOTES="Release v${{ steps.bump-version.outputs.new }}"
+
+          if [ -n "${{ github.event.inputs.changelog }}" ]; then
+            NOTES+=$'\n\n${{ github.event.inputs.changelog }}'
+          fi
+
+          NOTES+=$'\n\n## Installation\n\n```bash\nnpm install expo-android-targets@${{ steps.bump-version.outputs.new }}\n```'
+
+          # Save to file for GitHub release
+          echo "$NOTES" > release-notes.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.bump-version.outputs.new }}
+          name: Release v${{ steps.bump-version.outputs.new }}
+          body_path: release-notes.txt
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "## 🚀 Release Created!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Previous Version:** ${{ steps.current-version.outputs.current }}" >> $GITHUB_STEP_SUMMARY
+          echo "**New Version:** ${{ steps.bump-version.outputs.new }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Type:** ${{ github.event.inputs.version-type }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Tag \`v${{ steps.bump-version.outputs.new }}\` has been pushed." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **Next step:** The \`publish.yml\` workflow will automatically publish to npm when the release is created." >> $GITHUB_STEP_SUMMARY
